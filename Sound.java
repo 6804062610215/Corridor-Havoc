@@ -16,6 +16,7 @@ public class Sound {
             "player_hurt.wav", "pickup.wav",
             "wave_start.wav", "boss_appear.wav",
             "game_over.wav", "mission_complete.wav",
+            "explosion.wav", "level_complete.wav",
             "music.wav"
     };
 

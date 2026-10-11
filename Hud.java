@@ -59,7 +59,7 @@ public class Hud {
     // BOTTOM BAR (HP / AMMO / WAVE)
     // ========================================
 
-    public void drawBar(Graphics2D g, Player player, WaveManager waveManager) {
+    public void drawBar(Graphics2D g, Player player, WaveManager waveManager, Level level, int totalLevels) {
 
         int barTop = SCREEN_HEIGHT - BAR_HEIGHT;
 
@@ -105,9 +105,10 @@ public class Hud {
         FontMetrics fm = g.getFontMetrics();
         g.drawString(ammoText, SCREEN_WIDTH / 2 - fm.stringWidth(ammoText) / 2, SCREEN_HEIGHT - 15);
 
-        // WAVE
-        String waveText = "WAVE " + waveManager.getCurrentWave() + "/" + WaveManager.TOTAL_WAVES;
-        g.drawString(waveText, SCREEN_WIDTH - 160, SCREEN_HEIGHT - 15);
+        // LEVEL + WAVE
+        String waveText = "LEVEL " + level.number + "/" + totalLevels
+                + "   WAVE " + waveManager.getCurrentWave() + "/" + waveManager.getTotalWaves();
+        g.drawString(waveText, SCREEN_WIDTH - 20 - fm.stringWidth(waveText), SCREEN_HEIGHT - 15);
 
         g.setColor(new Color(150, 150, 150));
         g.setFont(new Font("Arial", Font.PLAIN, 12));
@@ -118,5 +119,31 @@ public class Hud {
             g.setFont(new Font("Arial", Font.BOLD, 16));
             g.drawString("DAMAGE BOOST!", 20, barTop - 10);
         }
+    }
+
+    // ========================================
+    // LEVEL BANNER (ชื่อด่านตอนเริ่มด่าน)
+    // ========================================
+
+    public void drawLevelBanner(Graphics2D g, Level level, long levelStartTime) {
+
+        // แสดงชื่อด่าน 3 วินาทีแรกหลังเริ่มด่าน
+        if (System.currentTimeMillis() - levelStartTime > 3000) {
+            return;
+        }
+
+        String title = "LEVEL " + level.number;
+
+        g.setFont(new Font("Arial", Font.BOLD, 40));
+        FontMetrics fm = g.getFontMetrics();
+
+        g.setColor(new Color(255, 210, 40));
+        g.drawString(title, SCREEN_WIDTH / 2 - fm.stringWidth(title) / 2, 130);
+
+        g.setFont(new Font("Arial", Font.BOLD, 22));
+        fm = g.getFontMetrics();
+
+        g.setColor(Color.WHITE);
+        g.drawString(level.name, SCREEN_WIDTH / 2 - fm.stringWidth(level.name) / 2, 165);
     }
 }

@@ -8,11 +8,8 @@ import java.util.Queue;
 // ศัตรูแค่เดินไปยังช่องข้าง ๆ ที่มีตัวเลขน้อยกว่าช่องตัวเอง ก็จะถึงผู้เล่นเสมอ
 public class PathFinder {
 
-    private static final int ROWS = GameMap.MAP.length;
-    private static final int COLS = GameMap.MAP[0].length();
-
-    // distance[row][col] = จำนวนช่องที่ต้องเดินถึงผู้เล่น (-1 = ไปไม่ถึง / เป็นกำแพง)
-    private static int[][] distance = new int[ROWS][COLS];
+    // distance[row][col] = จำนวนช่องที่ต้องเดินถึงผู้เล่น (-1 = ไปไม่ถึง / เดินผ่านไม่ได้)
+    private static int[][] distance;
 
     // ทิศทั้ง 4: ขวา, ซ้าย, ลง, ขึ้น
     private static final int[] DIR_COL = { 1, -1, 0, 0 };
@@ -21,8 +18,16 @@ public class PathFinder {
     // คำนวณระยะทุกช่องใหม่ (เรียกทุกเฟรม เพราะผู้เล่นเดินไปเรื่อย ๆ)
     public static void update(double playerX, double playerY) {
 
-        for (int row = 0; row < ROWS; row++) {
-            for (int col = 0; col < COLS; col++) {
+        int rows = GameMap.getRows();
+        int cols = GameMap.getCols();
+
+        // แต่ละด่านแผนที่ขนาดไม่เท่ากัน สร้างอาร์เรย์ใหม่ถ้าขนาดเปลี่ยน
+        if (distance == null || distance.length != rows || distance[0].length != cols) {
+            distance = new int[rows][cols];
+        }
+
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < cols; col++) {
                 distance[row][col] = -1;
             }
         }
@@ -47,8 +52,8 @@ public class PathFinder {
                 int nextCol = col + DIR_COL[d];
                 int nextRow = row + DIR_ROW[d];
 
-                // เป็นกำแพง (หรือนอกแผนที่) ข้ามไป
-                if (GameMap.isWall(nextCol, nextRow)) {
+                // เป็นกำแพง ถังระเบิด หรือนอกแผนที่ ข้ามไป
+                if (GameMap.isBlocked(nextCol, nextRow)) {
                     continue;
                 }
 
@@ -83,7 +88,7 @@ public class PathFinder {
             int nextCol = col + DIR_COL[d];
             int nextRow = row + DIR_ROW[d];
 
-            if (GameMap.isWall(nextCol, nextRow)) {
+            if (GameMap.isBlocked(nextCol, nextRow)) {
                 continue;
             }
 

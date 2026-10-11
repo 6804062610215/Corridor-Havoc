@@ -42,8 +42,8 @@ public class Projectile {
 
         traveled += moveDist;
 
-        // วิ่งครบระยะ หรือชนกำแพง
-        if (traveled >= maxRange || GameMap.isWall(x, y)) {
+        // วิ่งครบระยะ หรือชนกำแพง / ถังระเบิด
+        if (traveled >= maxRange || GameMap.isBlocked(x, y)) {
             alive = false;
         }
     }

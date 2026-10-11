@@ -36,6 +36,11 @@ public class GamePanel extends JPanel implements ActionListener {
     Player player;
     WaveManager waveManager;
 
+    // ด่านทั้งหมด และด่านที่กำลังเล่น (0 = ด่านแรก)
+    Level[] levels;
+    int levelIndex = 0;
+    long levelStartTime = 0;
+
     Renderer renderer;
     Hud hud;
     MenuScreen menuScreen;
@@ -75,7 +80,9 @@ public class GamePanel extends JPanel implements ActionListener {
         blankCursor = getToolkit().createCustomCursor(
                 new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), new Point(0, 0), "blank");
 
-        waveManager = new WaveManager(GameMap.getFloorSpawnPoints());
+        levels = Levels.createAll();
+
+        waveManager = new WaveManager();
 
         renderer = new Renderer(screen);
         hud = new Hud();
@@ -113,8 +120,11 @@ public class GamePanel extends JPanel implements ActionListener {
             }
 
             updateEnemiesAndItems();
-            checkWaveProgression();
-            checkGameOverOrComplete();
+            checkGameOver();
+
+            if (gameState == GameState.PLAYING) {
+                checkWaveProgression();
+            }
         }
 
         renderGame();
@@ -128,18 +138,41 @@ public class GamePanel extends JPanel implements ActionListener {
 
     public void startNewRun(Weapon weapon) {
 
-        player = new Player(GameMap.PLAYER_START_X, GameMap.PLAYER_START_Y, weapon);
+        player = new Player(0, 0, weapon);
 
-        waveManager.reset();
-        waveManager.startNextWave(player);
+        levelIndex = 0;
 
-        gameState = GameState.PLAYING;
+        loadLevel(levelIndex);
 
         Sound.loop("music.wav");
 
         // ซ่อนเมาส์ แล้วย้ายเมาส์ไปไว้กลางจอก่อนเริ่มเล่น
         setCursor(blankCursor);
         input.moveMouseToCenter();
+    }
+
+    // โหลดด่าน: เปลี่ยนแผนที่ ย้ายผู้เล่นไปจุดเกิด เปลี่ยนสีฉาก แล้วเริ่มคลื่นแรก
+    void loadLevel(int index) {
+
+        Level level = levels[index];
+
+        GameMap.load(level.map);
+
+        player.x = level.startX;
+        player.y = level.startY;
+        player.angle = level.startAngle;
+
+        renderer.setTheme(level);
+
+        waveManager.startLevel(level, player);
+
+        levelStartTime = System.currentTimeMillis();
+
+        gameState = GameState.PLAYING;
+    }
+
+    public Level getCurrentLevel() {
+        return levels[levelIndex];
     }
 
     // ปุ่ม R: ระหว่างเล่น = รีโหลด, หลังจบเกม = กลับไปหน้าเลือกอาวุธ
@@ -155,25 +188,65 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    // ปุ่ม ENTER: หลังผ่านด่าน = ไปด่านถัดไป
+    public void onEnterKey() {
+
+        if (gameState != GameState.LEVEL_COMPLETE) {
+            return;
+        }
+
+        levelIndex++;
+
+        // ขึ้นด่านใหม่ได้เลือดเต็ม
+        player.hp = player.maxHp;
+
+        loadLevel(levelIndex);
+
+        input.moveMouseToCenter();
+    }
+
     void checkWaveProgression() {
 
         if (!waveManager.isWaveCleared()) {
             return;
         }
 
-        if (waveManager.isBossWave()) {
-            // บอสตายแล้ว รอ checkGameOverOrComplete จัดการ MISSION_COMPLETE
-            return;
-        }
+        if (waveManager.isLevelCleared()) {
 
-        if (waveManager.hasMoreRegularWaves()) {
+            onLevelCleared();
+
+        } else if (waveManager.hasMoreRegularWaves()) {
+
             waveManager.startNextWave(player);
+
         } else {
+
             waveManager.startBossWave(player);
         }
     }
 
-    void checkGameOverOrComplete() {
+    void onLevelCleared() {
+
+        boolean isLastLevel = levelIndex == levels.length - 1;
+
+        if (isLastLevel) {
+
+            gameState = GameState.MISSION_COMPLETE;
+
+            Sound.stop("music.wav");
+            Sound.play("mission_complete.wav");
+
+            setCursor(Cursor.getDefaultCursor());
+
+        } else {
+
+            gameState = GameState.LEVEL_COMPLETE;
+
+            Sound.play("level_complete.wav");
+        }
+    }
+
+    void checkGameOver() {
 
         if (player.isDead()) {
 
@@ -181,15 +254,6 @@ public class GamePanel extends JPanel implements ActionListener {
 
             Sound.stop("music.wav");
             Sound.play("game_over.wav");
-
-            setCursor(Cursor.getDefaultCursor());
-
-        } else if (waveManager.isBossWave() && waveManager.isWaveCleared()) {
-
-            gameState = GameState.MISSION_COMPLETE;
-
-            Sound.stop("music.wav");
-            Sound.play("mission_complete.wav");
 
             setCursor(Cursor.getDefaultCursor());
         }
@@ -236,11 +300,12 @@ public class GamePanel extends JPanel implements ActionListener {
         double nextX = player.x + moveX;
         double nextY = player.y + moveY;
 
-        if (!GameMap.isWall(nextX, player.y)) {
+        // ชนกำแพงหรือถังระเบิด เดินต่อไม่ได้
+        if (!GameMap.isBlocked(nextX, player.y)) {
             player.x = nextX;
         }
 
-        if (!GameMap.isWall(player.x, nextY)) {
+        if (!GameMap.isBlocked(player.x, nextY)) {
             player.y = nextY;
         }
     }
@@ -253,6 +318,7 @@ public class GamePanel extends JPanel implements ActionListener {
 
         waveManager.updateEnemies(player);
         waveManager.updateProjectiles(0.016, player);
+        waveManager.updateObstacles(player);
         waveManager.updateItemSpawning();
 
         List<Item> items = waveManager.getItems();
@@ -331,12 +397,51 @@ public class GamePanel extends JPanel implements ActionListener {
         }
 
         // ----------------------------
-        // กระสุนที่มองเห็นได้ วิ่งไปจนถึงศัตรูที่โดน หรือถึงกำแพงตรงกลางจอ
+        // ถังระเบิดที่อยู่ตรงกากบาท ถ้าอยู่ใกล้กว่าศัตรู กระสุนจะโดนถังแทน
+        // ----------------------------
+
+        ExplosiveBarrel targetBarrel = null;
+
+        for (Obstacle o : waveManager.getObstacles()) {
+
+            if (!(o instanceof ExplosiveBarrel)) {
+                continue;
+            }
+
+            ExplosiveBarrel barrel = (ExplosiveBarrel) o;
+
+            if (barrel.isExploded()) {
+                continue;
+            }
+
+            double dx = barrel.x - player.x;
+            double dy = barrel.y - player.y;
+
+            double dist = Math.hypot(dx, dy);
+
+            double angleToTarget = normalizeAngle(Math.atan2(dy, dx) - player.angle);
+
+            // ต้องไม่มีกำแพงบัง (ถังอยู่ใกล้กว่ากำแพงตรงกลางจอ)
+            if (Math.abs(angleToTarget) <= SHOOT_ANGLE_TOLERANCE &&
+                    dist < bestDist &&
+                    dist < renderer.getCenterWallDistance()) {
+
+                targetBarrel = barrel;
+                bestDist = dist;
+            }
+        }
+
+        if (targetBarrel != null) {
+            target = null;
+        }
+
+        // ----------------------------
+        // กระสุนที่มองเห็นได้ วิ่งไปจนถึงเป้าที่โดน หรือถึงกำแพงตรงกลางจอ
         // ----------------------------
 
         double bulletRange;
 
-        if (target != null) {
+        if (target != null || targetBarrel != null) {
             bulletRange = bestDist;
         } else {
             bulletRange = renderer.getCenterWallDistance();
@@ -356,6 +461,10 @@ public class GamePanel extends JPanel implements ActionListener {
         // ----------------------------
         // ทำดาเมจ
         // ----------------------------
+
+        if (targetBarrel != null) {
+            waveManager.explodeBarrel(targetBarrel, player);
+        }
 
         if (target != null) {
 
@@ -401,7 +510,12 @@ public class GamePanel extends JPanel implements ActionListener {
             case PLAYING:
                 renderer.drawWorld(g, player, waveManager);
                 hud.drawGun(g, player, lastFlashTime);
-                hud.drawBar(g, player, waveManager);
+                hud.drawBar(g, player, waveManager, getCurrentLevel(), levels.length);
+                hud.drawLevelBanner(g, getCurrentLevel(), levelStartTime);
+                break;
+
+            case LEVEL_COMPLETE:
+                menuScreen.drawLevelComplete(g, getCurrentLevel(), levels[levelIndex + 1]);
                 break;
 
             case MISSION_COMPLETE:

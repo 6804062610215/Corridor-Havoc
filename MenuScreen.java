@@ -114,6 +114,29 @@ public class MenuScreen {
         drawCentered(g, "Press R to restart   ESC to quit", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 50);
     }
 
+    // ========================================
+    // LEVEL COMPLETE (ผ่านด่าน ไปด่านถัดไป)
+    // ========================================
+
+    public void drawLevelComplete(Graphics2D g, Level finished, Level next) {
+
+        g.setColor(Color.BLACK);
+        g.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+        g.setColor(new Color(120, 220, 120));
+        g.setFont(new Font("Arial", Font.BOLD, 44));
+        drawCentered(g, "LEVEL " + finished.number + " COMPLETE", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 20);
+
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        drawCentered(g, "Next: Level " + next.number + " - " + next.name, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 30);
+
+        g.setColor(new Color(180, 180, 180));
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        drawCentered(g, "HP is fully restored", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 60);
+        drawCentered(g, "Press ENTER to continue   ESC to quit", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 100);
+    }
+
     // วาดข้อความให้อยู่กึ่งกลางตามแนวนอน
     private void drawCentered(Graphics2D g, String text, int centerX, int y) {
 

@@ -76,11 +76,11 @@ public abstract class Enemy {
         double nextX = x + moveX;
         double nextY = y + moveY;
 
-        if (!GameMap.isWall(nextX, y)) {
+        if (!GameMap.isBlocked(nextX, y)) {
             x = nextX;
         }
 
-        if (!GameMap.isWall(x, nextY)) {
+        if (!GameMap.isBlocked(x, nextY)) {
             y = nextY;
         }
     }

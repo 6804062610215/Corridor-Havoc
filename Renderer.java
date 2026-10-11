@@ -18,6 +18,10 @@ public class Renderer {
     // สีของ texture กำแพงแต่ละพิกเซล [x][y] เก็บไว้ล่วงหน้าจะได้ไม่ต้องอ่านจากรูปทุกเฟรม
     private Color[][] wallColors;
 
+    // สีเพดานและพื้น (เปลี่ยนตามด่าน)
+    private Color ceilingColor = new Color(40, 40, 40);
+    private Color floorColor = new Color(80, 80, 80);
+
     // ระยะถึงกำแพงของแต่ละคอลัมน์บนจอ ใช้เช็คว่ากำแพงบังศัตรูหรือไม่
     private double[] zBuffer = new double[SCREEN_WIDTH];
 
@@ -25,7 +29,21 @@ public class Renderer {
 
         this.screen = screen;
 
-        BufferedImage wallTexture = createWallTexture();
+        setWallColor(new Color(150, 150, 150));
+    }
+
+    // เปลี่ยนสีกำแพง เพดาน และพื้น ให้เข้ากับด่าน
+    public void setTheme(Level level) {
+
+        setWallColor(level.wallColor);
+
+        ceilingColor = level.ceilingColor;
+        floorColor = level.floorColor;
+    }
+
+    private void setWallColor(Color brickColor) {
+
+        BufferedImage wallTexture = createWallTexture(brickColor);
 
         wallColors = new Color[TEXTURE_SIZE][TEXTURE_SIZE];
 
@@ -48,10 +66,10 @@ public class Renderer {
         // CEILING / FLOOR
         // ====================================
 
-        g.setColor(new Color(40, 40, 40));
+        g.setColor(ceilingColor);
         g.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
 
-        g.setColor(new Color(80, 80, 80));
+        g.setColor(floorColor);
         g.fillRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
 
         drawWalls(player);
@@ -77,7 +95,7 @@ public class Renderer {
     // CREATE TEXTURE
     // ========================================
 
-    private BufferedImage createWallTexture() {
+    private BufferedImage createWallTexture(Color brickColor) {
 
         BufferedImage texture = new BufferedImage(
                 TEXTURE_SIZE,
@@ -86,8 +104,8 @@ public class Renderer {
 
         Graphics2D g = texture.createGraphics();
 
-        // พื้น texture
-        g.setColor(new Color(120, 120, 120));
+        // พื้น texture (เข้มกว่าสีอิฐเล็กน้อย)
+        g.setColor(scaleColor(brickColor, 0.8));
 
         g.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
 
@@ -98,14 +116,14 @@ public class Renderer {
 
                 int offset = (y / 16 % 2) * 16;
 
-                g.setColor(new Color(150, 150, 150));
+                g.setColor(brickColor);
 
                 g.fillRect(x + offset, y, 30, 14);
             }
         }
 
-        // เส้นปูน
-        g.setColor(new Color(60, 60, 60));
+        // เส้นปูน (เข้มกว่าสีอิฐมาก)
+        g.setColor(scaleColor(brickColor, 0.4));
 
         for (int y = 0; y < TEXTURE_SIZE; y += 16) {
             g.drawLine(0, y, TEXTURE_SIZE, y);
@@ -114,6 +132,15 @@ public class Renderer {
         g.dispose();
 
         return texture;
+    }
+
+    // ทำให้สีเข้มขึ้นตามตัวคูณ (เช่น 0.5 = เข้มขึ้นครึ่งหนึ่ง)
+    private Color scaleColor(Color c, double factor) {
+
+        return new Color(
+                (int) (c.getRed() * factor),
+                (int) (c.getGreen() * factor),
+                (int) (c.getBlue() * factor));
     }
 
     // ========================================
@@ -316,6 +343,10 @@ public class Renderer {
 
         for (Projectile p : waveManager.getProjectiles()) {
             sprites.add(new SpriteData(p.x, p.y, p.getImage(), p.getSizeScale(), false));
+        }
+
+        for (Obstacle o : waveManager.getObstacles()) {
+            sprites.add(new SpriteData(o.x, o.y, o.getImage(), o.getSizeScale(), o.isGrounded()));
         }
 
         // ----------------------------

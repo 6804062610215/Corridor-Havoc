@@ -50,6 +50,10 @@ public class InputHandler implements KeyListener, MouseListener, MouseMotionList
             game.onReloadKey();
         }
 
+        if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+            game.onEnterKey();
+        }
+
         // ESC = ออกจากเกม (เพราะหน้าต่างเต็มจอไม่มีปุ่มปิด)
         if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
             System.exit(0);

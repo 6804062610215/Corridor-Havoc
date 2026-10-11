@@ -2,11 +2,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-// จัดการคลื่นศัตรู (Wave), ไอเทม และกระสุนที่อยู่ในด่าน
+// จัดการทุกอย่างที่อยู่ในด่าน: คลื่นศัตรู ไอเทม กระสุน และอุปสรรค
 public class WaveManager implements ProjectileSpawner {
-
-    // ทั้งหมด 5 คลื่นตามเอกสารเกม: คลื่น 1-4 เป็นศัตรูธรรมดา, คลื่นที่ 5 เป็นบอส
-    public static final int TOTAL_WAVES = 5;
 
     // ศัตรูเกิดห่างจากผู้เล่นอย่างน้อยกี่ช่อง (จะได้เดินเข้ามาหาผู้เล่น ไม่โผล่ข้างตัว)
     private static final double MIN_SPAWN_DISTANCE = 6.0;
@@ -14,6 +11,8 @@ public class WaveManager implements ProjectileSpawner {
     // ไอเทมสุ่มเกิดบนพื้นทุก ๆ กี่มิลลิวินาที และมีบนแผนที่ได้มากสุดกี่ชิ้น
     private static final long ITEM_SPAWN_INTERVAL_MS = 15000;
     private static final int MAX_ITEMS_ON_MAP = 5;
+
+    private Level level;
 
     private int currentWave = 0;
     private boolean bossWaveActive = false;
@@ -23,21 +22,71 @@ public class WaveManager implements ProjectileSpawner {
     private final List<Enemy> enemies = new ArrayList<>();
     private final List<Item> items = new ArrayList<>();
     private final List<Projectile> projectiles = new ArrayList<>();
+    private final List<Obstacle> obstacles = new ArrayList<>();
 
-    private final List<double[]> spawnPoints;
+    private List<double[]> spawnPoints = new ArrayList<>();
     private final Random random = new Random();
 
-    public WaveManager(List<double[]> spawnPoints) {
-        this.spawnPoints = spawnPoints;
-    }
+    // ========================================
+    // LEVEL
+    // ========================================
 
-    public void reset() {
+    // เริ่มด่านใหม่ (ต้องเรียก GameMap.load() ก่อน)
+    public void startLevel(Level level, Player player) {
+
+        this.level = level;
+
         currentWave = 0;
         bossWaveActive = false;
         lastItemSpawnTime = System.currentTimeMillis();
+
         enemies.clear();
         items.clear();
         projectiles.clear();
+        obstacles.clear();
+
+        spawnPoints = GameMap.getFloorSpawnPoints();
+
+        loadObstacles();
+
+        startNextWave(player);
+    }
+
+    // อ่านตัวอักษรในแผนที่ แล้วสร้างอุปสรรคตามชนิด
+    private void loadObstacles() {
+
+        for (int row = 0; row < GameMap.getRows(); row++) {
+
+            for (int col = 0; col < GameMap.getCols(); col++) {
+
+                char c = GameMap.MAP[row].charAt(col);
+
+                double x = col + 0.5;
+                double y = row + 0.5;
+
+                if (c == 'F') {
+                    obstacles.add(new FirePit(x, y));
+                } else if (c == 'S') {
+                    obstacles.add(new SpikeTrap(x, y));
+                } else if (c == 'B') {
+                    obstacles.add(new ExplosiveBarrel(x, y));
+                }
+            }
+        }
+    }
+
+    // ด่านนี้ผ่านแล้วหรือยัง (ศัตรูหมดทุกคลื่น รวมถึงบอสถ้ามี)
+    public boolean isLevelCleared() {
+
+        if (!isWaveCleared() || hasMoreRegularWaves()) {
+            return false;
+        }
+
+        if (level.hasBoss && !bossWaveActive) {
+            return false;
+        }
+
+        return true;
     }
 
     private double[] pickSpawnPoint(Player player) {
@@ -66,8 +115,9 @@ public class WaveManager implements ProjectileSpawner {
 
         enemies.clear();
 
-        int gruntCount = 2 + currentWave;
-        int shooterCount = currentWave - 1;
+        // ด่านยิ่งสูง ศัตรูยิ่งเยอะ
+        int gruntCount = 1 + currentWave + level.number;
+        int shooterCount = currentWave - 1 + (level.number - 1);
 
         for (int i = 0; i < gruntCount; i++) {
 
@@ -113,9 +163,16 @@ public class WaveManager implements ProjectileSpawner {
         return true;
     }
 
-    // ยังมีคลื่นศัตรูธรรมดาเหลืออีกไหม (คลื่นสุดท้ายเป็นของบอส)
+    // ยังมีคลื่นศัตรูธรรมดาเหลืออีกไหม (ถ้าด่านมีบอส คลื่นสุดท้ายเป็นของบอส)
     public boolean hasMoreRegularWaves() {
-        return currentWave < TOTAL_WAVES - 1;
+
+        int regularWaves = level.totalWaves;
+
+        if (level.hasBoss) {
+            regularWaves = level.totalWaves - 1;
+        }
+
+        return currentWave < regularWaves;
     }
 
     public boolean isBossWave() {
@@ -124,6 +181,10 @@ public class WaveManager implements ProjectileSpawner {
 
     public int getCurrentWave() {
         return currentWave;
+    }
+
+    public int getTotalWaves() {
+        return level.totalWaves;
     }
 
     // ========================================
@@ -140,6 +201,10 @@ public class WaveManager implements ProjectileSpawner {
 
     public List<Projectile> getProjectiles() {
         return projectiles;
+    }
+
+    public List<Obstacle> getObstacles() {
+        return obstacles;
     }
 
     // ========================================
@@ -179,6 +244,65 @@ public class WaveManager implements ProjectileSpawner {
         ItemType[] types = ItemType.values();
 
         return types[random.nextInt(types.length)];
+    }
+
+    // ========================================
+    // OBSTACLES
+    // ========================================
+
+    public void updateObstacles(Player player) {
+
+        for (int i = obstacles.size() - 1; i >= 0; i--) {
+
+            Obstacle o = obstacles.get(i);
+
+            o.update(player);
+
+            if (o.isFinished()) {
+                obstacles.remove(i);
+            }
+        }
+    }
+
+    // ถังระเบิดแตก: ทำดาเมจศัตรูและผู้เล่นที่อยู่ในรัศมี และทำให้ถังข้าง ๆ ระเบิดต่อ
+    public void explodeBarrel(ExplosiveBarrel barrel, Player player) {
+
+        if (barrel.isExploded()) {
+            return;
+        }
+
+        barrel.explode();
+
+        for (Enemy e : enemies) {
+
+            if (e.alive && Math.hypot(e.x - barrel.x, e.y - barrel.y) < ExplosiveBarrel.BLAST_RADIUS) {
+
+                e.takeDamage(ExplosiveBarrel.DAMAGE_TO_ENEMY);
+
+                if (!e.alive) {
+                    maybeDropItem(e.x, e.y);
+                }
+            }
+        }
+
+        if (Math.hypot(player.x - barrel.x, player.y - barrel.y) < ExplosiveBarrel.BLAST_RADIUS) {
+            player.takeDamage(ExplosiveBarrel.DAMAGE_TO_PLAYER);
+        }
+
+        // ถังที่อยู่ใกล้ ๆ ระเบิดตามไปด้วย (เรียกเมธอดตัวเองซ้ำ = recursion)
+        for (Obstacle o : obstacles) {
+
+            if (o instanceof ExplosiveBarrel) {
+
+                ExplosiveBarrel other = (ExplosiveBarrel) o;
+
+                if (!other.isExploded() &&
+                        Math.hypot(other.x - barrel.x, other.y - barrel.y) < ExplosiveBarrel.BLAST_RADIUS) {
+
+                    explodeBarrel(other, player);
+                }
+            }
+        }
     }
 
     // ========================================
