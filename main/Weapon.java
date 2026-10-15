@@ -5,7 +5,7 @@ import java.awt.image.BufferedImage;
 public enum Weapon {
 
     // name, damage, fireSpeed, color, magazineSize, startingReserve, reloadTimeMs, automatic, shootSound, image
-    ASSAULT("Assault", 8, 6.0, new Color(60, 110, 200), 30, 90, 1400, true,
+    ASSAULT("Assault", 5, 20.0, new Color(60, 110, 200), 40, 200, 1400, true,
             "shoot_assault.wav", "gun_assault.png"),
     SHOTGUN("Shotgun", 25, 5.0, new Color(200, 140, 40), 6, 24, 2000, false,
             "shoot_shotgun.wav", "gun_shotgun.png"),
