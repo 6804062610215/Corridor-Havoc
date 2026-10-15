@@ -41,7 +41,7 @@ public class Item {
                 break;
 
             case AMMO:
-                player.addAmmo(20);
+                player.addAmmo(player.weapon.getAmmoPickupAmount());
                 break;
 
             case DAMAGE_BUFF:

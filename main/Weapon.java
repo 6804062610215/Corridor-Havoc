@@ -42,4 +42,14 @@ public enum Weapon {
     public long getCooldownMs() {
         return (long) (3000 / fireSpeed);
     }
+
+    // เก็บกล่องกระสุนแล้วได้กี่นัด: ปืนกล (ยิงอัตโนมัติ) ใช้กระสุนเปลือง จึงได้มากกว่าปืนอื่น
+    public int getAmmoPickupAmount() {
+
+        if (automatic) {
+            return 80;
+        }
+
+        return 20;
+    }
 }
