@@ -1,10 +1,11 @@
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
-import java.io.File;
+import java.net.URL;
 import java.util.HashMap;
 
 // เล่นเสียงจากโฟลเดอร์ res/sounds (ต้องเป็นไฟล์ .wav)
+// ใช้ getResource() หาไฟล์จาก classpath จึงใช้ได้ทั้งตอนรัน java Main และตอนรันจากไฟล์ .jar
 public class Sound {
 
     private static HashMap<String, Clip> clips = new HashMap<>();
@@ -37,7 +38,8 @@ public class Sound {
         Clip clip = null;
 
         try {
-            AudioInputStream audio = AudioSystem.getAudioInputStream(new File("res/sounds/" + fileName));
+            URL url = Sound.class.getResource("/res/sounds/" + fileName);
+            AudioInputStream audio = AudioSystem.getAudioInputStream(url);
             clip = AudioSystem.getClip();
             clip.open(audio);
         } catch (Exception e) {

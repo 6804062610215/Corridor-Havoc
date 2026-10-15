@@ -1,8 +1,9 @@
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.File;
+import java.net.URL;
 
 // โหลดรูปจากโฟลเดอร์ res/images
+// ใช้ getResource() หาไฟล์จาก classpath จึงใช้ได้ทั้งตอนรัน java Main และตอนรันจากไฟล์ .jar
 public class ImageLoader {
 
     public static BufferedImage load(String fileName) {
@@ -10,8 +11,16 @@ public class ImageLoader {
         BufferedImage image = null;
 
         try {
-            image = ImageIO.read(new File("res/images/" + fileName));
+            URL url = ImageLoader.class.getResource("/res/images/" + fileName);
+
+            if (url != null) {
+                image = ImageIO.read(url);
+            }
         } catch (Exception e) {
+            image = null;
+        }
+
+        if (image == null) {
             System.out.println("Cannot load image: " + fileName);
         }
 
